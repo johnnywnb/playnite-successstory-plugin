@@ -26,6 +26,7 @@ using CommonPlayniteShared.Common;
 using AngleSharp.Dom;
 using CommonPluginsStores.Models;
 using System.Collections.ObjectModel;
+using static SuccessStory.Services.SuccessStoryDatabase;
 
 namespace SuccessStory.Clients
 {
@@ -146,6 +147,7 @@ namespace SuccessStory.Clients
                 {
                     SteamEmulators se = new SteamEmulators(PluginDatabase.PluginSettings.Settings.LocalPath);
                     GameAchievements temp = se.GetAchievementsLocal(game, SteamApi.CurrentAccountInfos?.ApiKey, 0, IsManual);
+                    //Logger.Info($"TEMP Achievements from GetAchievements (2) : {Serialization.ToJson(temp)}");
                     appId = se.GetAppId();
 
                     if (temp.Items.Count > 0)
@@ -181,8 +183,11 @@ namespace SuccessStory.Clients
             }
 
             SetRarity(appId, gameAchievements);
+            SetAchievementPercent(appId, gameAchievements);
             //SetMissingDescription(appId, gameAchievements);
             gameAchievements.SetRaretyIndicator();
+            //Logger.Info($"Achievements from GetAchievements (2) : {Serialization.ToJson(gameAchievements)}");
+
 
             return gameAchievements;
         }
@@ -252,8 +257,11 @@ namespace SuccessStory.Clients
             }
 
             SetRarity(appId, gameAchievements);
+            SetAchievementPercent(appId, gameAchievements);
             //SetMissingDescription(appId, gameAchievements);
             gameAchievements.SetRaretyIndicator();
+
+            //Logger.Info($"Achievements from GetAchievements : {Serialization.ToJson(gameAchievements)}");
 
             return gameAchievements;
         }
@@ -302,6 +310,23 @@ namespace SuccessStory.Clients
                 if (finded != null)
                 {
                     finded.GamerScore = x.GamerScore;
+                }
+                else
+                {
+
+                }
+            });
+        }
+
+        public void SetAchievementPercent(uint appId, GameAchievements gameAchievements)
+        {
+            ObservableCollection<GameAchievement> steamAchievements = SteamApi.GetAchievements(appId.ToString(), null);
+            steamAchievements.ForEach(x =>
+            {
+                Achievements finded = gameAchievements.Items?.Find(y => y.ApiName.IsEqual(x.Id));
+                if (finded != null)
+                {
+                    finded.Description = x.Description + "\r\n(" + x.Percent + "% of players)";
                 }
                 else
                 {

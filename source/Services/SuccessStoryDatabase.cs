@@ -278,10 +278,12 @@ namespace SuccessStory.Services
                 }
 
                 Common.LogDebug(true, $"Achievements for {game.Name} - {achievementSource} - {Serialization.ToJson(gameAchievements)}");
+                //Logger.Info($"Achievements for {game.Name} - {achievementSource} - {Serialization.ToJson(gameAchievements)}");
             }
             else
             {
                 Common.LogDebug(true, $"VerifToAddOrShow({game.Name}, {achievementSource}) - KO");
+                //Logger.Info( $"VerifToAddOrShow({game.Name}, {achievementSource}) - KO");
             }
 
             gameAchievements = SetEstimateTimeToUnlock(game, gameAchievements);

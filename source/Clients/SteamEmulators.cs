@@ -19,6 +19,11 @@ using Playnite.SDK;
 using System.Collections.ObjectModel;
 using CommonPluginsStores.Models;
 using CommonPluginsStores.Steam.Models.SteamKit;
+using CommonPluginsShared.Interfaces;
+using System.Windows.Shapes;
+using CommonPlayniteShared;
+using LiveCharts.Maps;
+using System.Runtime.Remoting.Contexts;
 
 namespace SuccessStory.Clients
 {
@@ -50,6 +55,8 @@ namespace SuccessStory.Clients
 
             AchievementsDirectories.Add("%DOCUMENTS%\\VALVE");
 
+            AchievementsDirectories.Add("%appdata%\\GSE Saves");
+            AchievementsDirectories.Add("%localappdata%\\anadius\\LSX emu\\achievement_watcher");
             AchievementsDirectories.Add("%appdata%\\Goldberg SteamEmu Saves");
             AchievementsDirectories.Add("%appdata%\\SmartSteamEmu");
             AchievementsDirectories.Add("%DOCUMENTS%\\DARKSiDERS");
@@ -98,8 +105,23 @@ namespace SuccessStory.Clients
         {
             GameAchievements gameAchievements = SuccessStory.PluginDatabase.GetDefault(game);
             GameAchievements gameAchievementsCached = SuccessStory.PluginDatabase.Get(game, true);
-
             AppId = steamId != 0 ? steamId : SteamApi.GetAppId(game.Name);
+            
+            Logger.Warn($"App ID - {AppId}");
+            //Logger.Warn($"LocalPath - {game.InstallDirectory}");
+
+            if (AppId == 0)
+            {
+                string file = Directory.GetFiles(game.InstallDirectory, "steam_appid.txt", SearchOption.AllDirectories)
+                    .FirstOrDefault();
+                if (file != null)
+                {
+                    Logger.Warn($"FilePath - {file}");
+                    AppId = Convert.ToUInt32(File.ReadAllText(file));
+                    Logger.Warn($"App ID from steam_appid.txt - {AppId}");
+                }
+            }
+
             SteamEmulatorData data = Get(game, AppId, apiKey, isManual);
 
             if (gameAchievementsCached == null)
@@ -121,13 +143,17 @@ namespace SuccessStory.Clients
 
                 gameAchievementsCached.Items.ForEach(x =>
                 {
+                    //Logger.Info($"GetAchievementsLocal (X) : {Serialization.ToJson(x)}");
                     Achievements finded = data.Achievements.Find(y => x.ApiName == y.ApiName);
+                    //Logger.Info($"GetAchievementsLocal (finded) : {Serialization.ToJson(finded)}");
                     if (finded != null)
                     {
                         x.Name = finded.Name;
                         if (x.DateUnlocked == null || x.DateUnlocked == default(DateTime))
                         {
+                            //Logger.Warn($"Unlocked: {x.Name}");
                             x.DateUnlocked = finded.DateUnlocked;
+                            //Logger.Warn($"Unlocked time: {x.DateUnlocked}");
                         }
                     }
                 });
@@ -518,6 +544,7 @@ namespace SuccessStory.Clients
                         {
                             case "%public%\\documents\\steam\\codex":
                             case "%appdata%\\steam\\codex":
+                            case "%localappdata%\\anadius\\lsx emu\\achievement_watcher":
                                 if (File.Exists(Environment.ExpandEnvironmentVariables(DirAchivements) + $"\\{appId}\\achievements.ini"))
                                 {
                                     string line;
@@ -636,18 +663,22 @@ namespace SuccessStory.Clients
                                 break;
 
                             case "%appdata%\\goldberg steamemu saves":
+                            case "%appdata%\\gse saves":
+                                Logger.Warn($"GSE Saves for {appId}");
                                 if (File.Exists(Environment.ExpandEnvironmentVariables(DirAchivements) + $"\\{appId}\\achievements.json"))
                                 {
                                     string Name = string.Empty;
                                     DateTime? DateUnlocked = null;
 
                                     string jsonText = File.ReadAllText(Environment.ExpandEnvironmentVariables(DirAchivements) + $"\\{appId}\\achievements.json");
+                                    Logger.Info($"GSE - jsonText : {jsonText}");
                                     foreach (dynamic achievement in Serialization.FromJson<dynamic>(jsonText))
                                     {
                                         Name = achievement.Path;
 
                                         dynamic elements = achievement.First;
                                         dynamic unlockedTimeToken = elements.SelectToken("earned_time");
+                                        Logger.Info($"GSE - UnlockedToken : {Serialization.ToJson(unlockedTimeToken)}");
 
                                         if (unlockedTimeToken.Value > 0)
                                         {
@@ -963,6 +994,7 @@ namespace SuccessStory.Clients
                     }
 
                     Common.LogDebug(true, $"{Serialization.ToJson(ReturnAchievements)}");
+                    Logger.Warn($"ReturnAchivements: {Serialization.ToJson(ReturnAchievements)}");
 
                     if (ReturnAchievements == new List<Achievements>())
                     {
@@ -972,6 +1004,8 @@ namespace SuccessStory.Clients
                 }
                 #endregion
 
+                // TODO: if Steam fails, search for achievements.json file in game folder
+                
                 #region Get achievements
                 ObservableCollection<GameAchievement> steamAchievements = SteamApi.GetAchievementsSchema(appId);
                 steamAchievements?.ForEach(x =>
@@ -988,7 +1022,7 @@ namespace SuccessStory.Clients
                                 Description = x.Description,
                                 UrlUnlocked = x.UrlUnlocked,
                                 UrlLocked = x.UrlLocked,
-                                DateUnlocked = x.DateUnlocked,
+                                DateUnlocked = ReturnAchievements[j].DateUnlocked,
                                 GamerScore = x.GamerScore
                             };
 
@@ -1050,6 +1084,10 @@ namespace SuccessStory.Clients
 
                 // Delete empty (SteamEmu)
                 ReturnAchievements = ReturnAchievements.Select(x => x).Where(x => !string.IsNullOrEmpty(x.UrlLocked)).ToList();
+                
+                Logger.Warn($"ReturnAchivements 2: {Serialization.ToJson(ReturnAchievements)}");
+                SteamEmulatorData dbgdata = new SteamEmulatorData { Achievements = ReturnAchievements, Stats = ReturnStats };
+                Logger.Warn($"SteamEmulatorData: {Serialization.ToJson(dbgdata)}");
 
                 return new SteamEmulatorData { Achievements = ReturnAchievements, Stats = ReturnStats };
             }

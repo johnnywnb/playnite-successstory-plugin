@@ -259,3 +259,6 @@ paket-files/
 
 # Visual Studio Code stuff
 .vscode/
+
+# jwnb-fix
+build/*
